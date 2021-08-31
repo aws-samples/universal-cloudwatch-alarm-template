@@ -1,0 +1,273 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Alerting mechanism for monitoring resources.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - 
+        Label: 
+          default: SNS Topic information for whether you will create a new SNS Topic or use an existing one.
+        Parameters:
+          - pExistingOrCreateSNS
+          - pExistingSNSID
+          - pSNSTopicFriendlyName
+          - pSNSEmail
+      - 
+        Label:
+          default: Please enter information on the resource that will be monitored
+        Parameters:
+          - pResourceLogicalID
+      - 
+        Label:
+          default: Define the attributes the alarm will use.
+        Parameters:
+          - pMetric
+          - pThreshold
+          - pPeriodLength
+          - pEvaluationPeriods
+          - pMissingData
+          - pNamespace
+          - pDimension
+          - pStatistic
+          - pComparisonOperator
+
+    ParameterLabels:
+      pExistingOrCreateSNS:
+        default: "Will you be creating a new SNS Topic or using an existing SNS Topic?"
+      pExistingSNSID:
+        default: "Logical ID of existing SNS Topic, if needed."
+      pSNSTopicFriendlyName:
+        default: "Name to give to the new SNS Topic, if you are creating one with this template."
+      pSNSEmail:
+        default: "For a NEW SNS Topic, please enter an email address for the alerts to be sent to."
+      pResourceLogicalID:
+        default: "Logical ID of the resource to be monitored."
+      pThreshold:
+        default: Threshold to be assigned to the Alarm.
+      pPeriodLength:
+        default: Period length
+      pEvaluationPeriods:
+        default: Number of evaluation periods
+      pMissingData:
+        default: Missing Data.
+      pNamespace:
+        default: Namespace
+      pDimension:
+        default: Dimension(s)
+      pStatistic:
+        default: Statistic
+      pMetric:
+        default: Metric
+      pComparisonOperator:
+        default: Comparison Operator
+
+Parameters:
+  pExistingOrCreateSNS:
+    Type: String
+    AllowedValues:
+      - Create
+      - Existing
+    Description: Please select Create or Existing as appropriate from the options. 
+    Default: Existing
+  pSNSTopicFriendlyName:
+    Type: String
+    Default: None
+    Description: If you need a new SNS topic created, please enter the friendly name you would like to give to that topic.
+  pSNSEmail:
+    Type: String
+    AllowedPattern: ([a-zA-Z0-9_\-\.]+)@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(([a-zA-Z0-9\-]+\.)+))([a-zA-Z]{2,4}|[0-9]{1,3})(\]?)
+    ConstraintDescription: Must be a valid email address.
+    Description: If you are creating a new SNS Topic, please enter a valid email or distribution group to send the alert too.
+  pExistingSNSID:
+    Type: String
+    Default: None
+    Description: Enter the logical ID of the SNS topic if you are using an existing one. Otherwise, leave the default of 'None'
+  pResourceLogicalID:
+    Type: String
+    Description: Please provide the logical ID of the resource being monitored.
+    Default: Resource Logical ID
+  pThreshold:
+    Type: Number
+    Description: Please enter the threshold for this alarm.
+    Default: 0
+  pPeriodLength:
+    Type: Number 
+    Description: The number of seconds the evaluation period should last. must be at least 60 seconds.
+    Default: 60
+  pEvaluationPeriods: 
+    Type: Number
+    Description: How many periods should be evaluated?
+    Default: 1
+  pMissingData:
+    Description: How would you like to treat missing data?
+    Type: String
+    AllowedValues: 
+      - missing
+      - breaching
+      - ignore
+      - notBreaching
+    Default: missing
+  pNamespace:
+    Type: String
+    Description: What is the namespace of the resource metric to be monitored?
+    Default: Namespace
+  pDimension:
+    Type: String
+    Description: What dimension do you want to monitor?
+    Default: Dimension
+  pStatistic:
+    Type: String
+    AllowedValues:
+      - Sum
+      - Average
+      - Maximum
+      - Minimum
+      - SampleCount
+    Description: What statistic would you like to monitor for?
+    Default: Average
+  pMetric:
+    Type: String
+    Default: Metric
+    Description: What Metric would you like to monitor?
+  pComparisonOperator:
+    Type: String
+    AllowedValues:
+      - GreaterThanOrEqualToThreshold
+      - GreaterThanThreshold
+      - GreaterThanUpperThreshold
+      - LessThanLowerOrGreaterThanUpperThreshold
+      - LessThanLowerThreshold
+      - LessThanOrEqualToThreshold
+      - LessThanThreshold
+    Default: GreaterThanThreshold
+
+
+Conditions:
+  cMakeSNS: !Equals
+    - !Ref pExistingOrCreateSNS
+    - Create
+  cExistingSNS: !Equals
+    - !Ref pExistingOrCreateSNS
+    - Existing
+
+Resources:
+  rResourceSNSTopic:
+    Type: AWS::SNS::Topic
+    Condition: cMakeSNS
+    Properties:
+      Subscription:
+        - Endpoint: !Ref pSNSEmail
+          Protocol: email
+      TopicName: !Ref pSNSTopicFriendlyName
+
+  rNewResourceAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: cMakeSNS
+    Properties:
+      ComparisonOperator: !Ref pComparisonOperator
+      MetricName: !Ref pMetric
+      Statistic: !Ref pStatistic
+      EvaluationPeriods: !Sub ${pEvaluationPeriods}
+      Period: !Sub ${pPeriodLength}
+      Namespace: !Ref pNamespace
+      Threshold: !Sub ${pThreshold}
+      Dimensions:
+        - Name: !Ref pDimension
+          Value: !Ref pResourceLogicalID
+      TreatMissingData: !Ref pMissingData
+      AlarmActions: 
+        - !Ref rResourceSNSTopic
+
+  rExistingResourceAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: cExistingSNS
+    Properties:
+      ComparisonOperator: !Ref pComparisonOperator
+      MetricName: !Ref pMetric
+      Statistic: !Ref pStatistic
+      EvaluationPeriods: !Ref pEvaluationPeriods
+      Period: !Ref pPeriodLength
+      Namespace: !Ref pNamespace
+      Threshold: !Ref pThreshold
+      Dimensions:
+        - Name: !Ref pDimension
+          Value: !Ref pResourceLogicalID
+      TreatMissingData: !Ref pMissingData
+      AlarmActions: 
+        - !Ref pExistingSNSID
+
+
+Outputs:
+  oExistingOrCreateSNS:
+    Value: !Ref pExistingOrCreateSNS
+    Description: Did the user select to create a new SNS topic, or use an existing one? 
+    Export:
+      Name: !Sub ${AWS::StackName}-NewOrExisting
+  oSNSTopicFriendlyName:
+    Value: !Ref pSNSTopicFriendlyName
+    Condition: cMakeSNS
+    Description: What friendly name was given to the SNS Topic.
+    Export:
+      Name: !Sub ${AWS::StackName}-NewSNSName
+  oSNSEmail:
+    Condition: cMakeSNS
+    Value: !Ref pSNSEmail
+    Description: What email endpoint was given for the new SNS
+    Export:
+      Name: !Sub ${AWS::StackName}-NewSNSEmail
+  oExistingSNSID:
+    Condition: cExistingSNS
+    Value: !Ref pExistingSNSID
+    Description: What was the existing SNS Topic ID used
+    Export:
+      Name: !Sub ${AWS::StackName}-ExistingSNS
+  oResourceLogicalID:
+    Value: !Ref pResourceLogicalID
+    Description: Logical ID selected to monitor
+    Export:
+      Name: !Sub ${AWS::StackName}-ResourceID
+  oThreshold:
+    Value: !Ref pThreshold
+    Description: Threshold chosen
+    Export:
+      Name: !Sub ${AWS::StackName}-Threshold
+  oPeriodLength:
+    Value: !Ref pPeriodLength
+    Description: Period length chosen
+    Export:
+      Name: !Sub ${AWS::StackName}-Period
+  oEvaluationPeriods: 
+    Value: !Ref pEvaluationPeriods
+    Description: How many ecaluation periods were assigned.
+    Export:
+      Name: !Sub ${AWS::StackName}-EvalutionPeriods
+  oMissingData:
+    Value: !Ref pMissingData
+    Description: How is missing data being treated
+    Export:
+      Name: !Sub ${AWS::StackName}-MissingData
+  oNamespace:
+    Value: !Ref pNamespace
+    Description: What namespace is being used
+    Export:
+      Name: !Sub ${AWS::StackName}-NameSpace
+  oDimensions:
+    Value: !Ref pDimension
+    Description: What dimension is being used
+    Export:
+      Name: !Sub ${AWS::StackName}-Dimension
+  oStatistic:
+    Value: !Ref pStatistic
+    Description: What statistic is being used
+    Export:
+      Name: !Sub ${AWS::StackName}-Stastitic
+  oMetric:
+    Value: !Ref pMetric
+    Description: What metric is being used
+    Export:
+      Name: !Sub ${AWS::StackName}-Metric
+  oComparisonOperator:
+    Value: !Ref pComparisonOperator
+    Description: What comparison operator is being used
+    Export:
+      Name: !Sub ${AWS::StackName}-ComparisonOperator
