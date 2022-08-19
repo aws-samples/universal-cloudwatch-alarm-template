@@ -16,7 +16,7 @@ Metadata:
         Label:
           default: Please enter information on the resource that will be monitored
         Parameters:
-          - pResourceLogicalID
+          - pUniqueResourceName
       - 
         Label:
           default: Define the attributes the alarm will use.
@@ -35,13 +35,13 @@ Metadata:
       pExistingOrCreateSNS:
         default: "Will you be creating a new SNS Topic or using an existing SNS Topic?"
       pExistingSNSID:
-        default: "Logical ID of existing SNS Topic, if needed."
+        default: "Unique Resource Name of existing SNS Topic, if needed."
       pSNSTopicFriendlyName:
         default: "Name to give to the new SNS Topic, if you are creating one with this template."
       pSNSEmail:
         default: "For a NEW SNS Topic, please enter an email address for the alerts to be sent to."
-      pResourceLogicalID:
-        default: "Logical ID of the resource to be monitored."
+      pUniqueResourceName:
+        default: "Unique Resource Name of the resource to be monitored."
       pThreshold:
         default: Threshold to be assigned to the Alarm.
       pPeriodLength:
@@ -53,7 +53,7 @@ Metadata:
       pNamespace:
         default: Namespace
       pDimension:
-        default: Dimension(s)
+        default: Dimension
       pStatistic:
         default: Statistic
       pMetric:
@@ -81,11 +81,11 @@ Parameters:
   pExistingSNSID:
     Type: String
     Default: None
-    Description: Enter the logical ID of the SNS topic if you are using an existing one. Otherwise, leave the default of 'None'
-  pResourceLogicalID:
+    Description: Enter the Unique resource name of the SNS topic if you are using an existing one. Otherwise, leave the default of 'None'
+  pUniqueResourceName:
     Type: String
-    Description: Please provide the logical ID of the resource being monitored.
-    Default: Resource Logical ID
+    Description: Please provide the unique resource name of the resource being monitored.
+    Default: Unique Resource Name
   pThreshold:
     Type: Number
     Description: Please enter the threshold for this alarm.
@@ -173,7 +173,7 @@ Resources:
       Threshold: !Sub ${pThreshold}
       Dimensions:
         - Name: !Ref pDimension
-          Value: !Ref pResourceLogicalID
+          Value: !Ref pUniqueResourceName
       TreatMissingData: !Ref pMissingData
       AlarmActions: 
         - !Ref rResourceSNSTopic
@@ -191,7 +191,7 @@ Resources:
       Threshold: !Ref pThreshold
       Dimensions:
         - Name: !Ref pDimension
-          Value: !Ref pResourceLogicalID
+          Value: !Ref pUniqueResourceName
       TreatMissingData: !Ref pMissingData
       AlarmActions: 
         - !Ref pExistingSNSID
@@ -221,9 +221,9 @@ Outputs:
     Description: What was the existing SNS Topic ID used
     Export:
       Name: !Sub ${AWS::StackName}-ExistingSNS
-  oResourceLogicalID:
-    Value: !Ref pResourceLogicalID
-    Description: Logical ID selected to monitor
+  oUniqueResourceName:
+    Value: !Ref pUniqueResourceName
+    Description: Unique Resource Name of resource selected to monitor
     Export:
       Name: !Sub ${AWS::StackName}-ResourceID
   oThreshold:
